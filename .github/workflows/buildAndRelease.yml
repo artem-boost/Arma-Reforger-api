@@ -51,7 +51,7 @@ jobs:
         mkdir -p package
         cp Arma-Reforger-api-${{ matrix.os }}-${{ matrix.arch }}* package/
         cp -r config.json package/
-        zip -r package-${{ matrix.os }}-${{ matrix.arch }}.zip package/
+        zip -r Arma-Reforger-api-${{ matrix.os }}-${{ matrix.arch }}.zip package/
     # Upload build artifacts
     - name: Upload build artifacts
       uses: actions/upload-artifact@v3
