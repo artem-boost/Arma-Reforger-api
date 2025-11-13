@@ -1,0 +1,60 @@
+name: Go Build and Release (Cross-platform)
+
+on:
+  push:
+    tags:
+      - 'v*'  # Каждый push с тегом, начинающимся с "v", например v1.0.0, создаст релиз
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]  # Платформы
+        arch: [amd64, arm64]  # Архитектуры
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Go
+      uses: actions/setup-go@v3
+      with:
+        go-version: '1.25.4'
+
+    - name: Cache Go modules
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/go-build
+        key: ${{ runner.os }}-go-${{ hashFiles('**/*.go') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+
+    - name: Install dependencies
+      run: go mod tidy
+
+    - name: Build Go Application (Cross-Platform)
+      run: |
+        if [ "${{ matrix.os }}" == "ubuntu-latest" ]; then
+          GOOS=linux GOARCH=${{ matrix.arch }} go build -o Arma-Reforger-api-linux-${{ matrix.arch }}
+        elif [ "${{ matrix.os }}" == "windows-latest" ]; then
+          GOOS=windows GOARCH=${{ matrix.arch }} go build -o Arma-Reforger-api-windows-${{ matrix.arch }}.exe
+        elif [ "${{ matrix.os }}" == "macos-latest" ]; then
+          GOOS=darwin GOARCH=${{ matrix.arch }} go build -o Arma-Reforger-api-darwin-${{ matrix.arch }}
+        fi
+    - name: Package the build into a ZIP archive
+      run: |
+        mkdir -p package
+        cp Arma-Reforger-api-${{ matrix.os }}-${{ matrix.arch }}* package/
+        cp -r config.json package/
+        zip -r package-${{ matrix.os }}-${{ matrix.arch }}.zip package/
+    # Upload build artifacts
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: Arma-Reforger-api-${{ matrix.os }}-${{ matrix.arch }}
+        path: Arma-Reforger-api-${{ matrix.os }}-${{ matrix.arch }}.zip
