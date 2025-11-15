@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -144,14 +145,13 @@ func RegisterUnmanagedServerHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, data)
 }
 
-func RegisterServerHandler(c *gin.Context) {
+func RegisterRoomHandler(c *gin.Context) {
 	var body models.ServerRegisterRequest
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request format"})
 		return
 	}
 
-	serverID := uuid.New().String()
 	hostServerID := uuid.New().String()
 
 	// Create server data
@@ -200,7 +200,7 @@ func RegisterServerHandler(c *gin.Context) {
 
 	server := &models.Server{
 		ID:          uuid.New().String(),
-		ServerID:    serverID,
+		ServerID:    hostServerID,
 		Data:        dataJSON,
 		Password:    body.Password,
 		IsLicense:   false,
@@ -237,13 +237,29 @@ func RemoveServerHandler(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"status": "OK"})
 }
+func RemoveRoomHandler(c *gin.Context) {
+	var body struct {
+		RoomId string `json:"roomId"`
+	}
+
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request format"})
+		return
+	}
+
+	if err := models.DeleteServer(body.RoomId); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete server"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"status": "OK"})
+}
 
 func HeartBeatHandler(c *gin.Context) {
 	var body struct {
 		ID      string        `json:"id"`
 		Players []interface{} `json:"players"`
 	}
-
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request format"})
 		return
@@ -262,6 +278,44 @@ func HeartBeatHandler(c *gin.Context) {
 
 	// Update player count
 	server.PlayerCount = len(body.Players)
+	server.LastUpdate = time.Now()
+	if err := models.CreateOrUpdateServer(server); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update server"})
+		return
+	}
+
+	data := gin.H{
+		"currentWorldVersion": "BanSettings",
+		"gameEvents":          []interface{}{},
+		"status":              "OK",
+	}
+
+	c.JSON(http.StatusOK, data)
+}
+func RoomHeartBeatHandler(c *gin.Context) {
+	var body struct {
+		ID      string        `json:"roomId"`
+		Players []interface{} `json:"players"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request format"})
+		return
+	}
+
+	server, err := models.GetServerByID(body.ID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+		return
+	}
+
+	if server == nil {
+		c.JSON(http.StatusNotFound, gin.H{"status": "NotFound Server"})
+		return
+	}
+
+	// Update player count
+	server.PlayerCount = len(body.Players)
+	server.LastUpdate = time.Now()
 	if err := models.CreateOrUpdateServer(server); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update server"})
 		return
@@ -342,4 +396,10 @@ func CreateBanHandler(c *gin.Context) {
 
 func RemoveBansHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "OK"})
+}
+func CreateOwnerTokenHandler(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"ownerToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzZXJ2ZXJJZCI6ImM2NWVjZWI3LTRjYTItNGFiOC04ZGU3LTQ0NzgyNzMxZjA2YyIsInVzZXJJZCI6IjFiZGU0NzA1LTM0ZmQtNDg5ZC1hN2V4cCI6MTcyNDAyNzE0NX0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c",
+		"serverId":   uuid.New().String(),
+	})
 }

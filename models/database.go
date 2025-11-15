@@ -292,7 +292,7 @@ func DeleteServer(serverID string) error {
 
 // CleanupOldServers удаляет старые серверы
 func CleanupOldServers() error {
-	query := "DELETE FROM servers WHERE last_update < datetime('now', '-3 minutes')"
+	query := "DELETE FROM servers WHERE last_update < datetime('now', '-1 minutes')"
 	_, err := DB.Exec(query)
 	return err
 }

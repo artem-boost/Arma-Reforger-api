@@ -68,7 +68,7 @@ func setupRouter() *gin.Engine {
 		{
 			s2s.POST("/rooms/acceptPlayer", handlers.AcceptPlayerHandler)
 			s2s.POST("/dedicatedServers/registerUnmanagedServer", handlers.RegisterUnmanagedServerHandler)
-			s2s.POST("/rooms/register", handlers.RegisterServerHandler)
+			s2s.POST("/rooms/register", handlers.RegisterRoomHandler)
 			s2s.POST("/rooms/remove", handlers.RemoveServerHandler)
 			s2s.POST("/dedicatedServers/heartBeat", handlers.HeartBeatHandler)
 			s2s.POST("/rooms/listActiveBans", handlers.ListActiveBansHandler)
@@ -81,11 +81,19 @@ func setupRouter() *gin.Engine {
 		// Public API
 		api := gameAPI.Group("/api/v1.0")
 		{
-			api.POST("/lobby/rooms/search", handlers.SearchServersHandler)
-			api.POST("/lobby/rooms/getRoomsByIds", handlers.GetRoomsByIDsHandler)
-			api.POST("/lobby/rooms/join", handlers.JoinRoomHandler)
-			api.POST("/lobby/rooms/verifyPassword", handlers.VerifyPasswordHandler)
-			api.POST("/lobby/rooms/listPlayers", handlers.ListPlayersHandler)
+			api.Group("/lobby/rooms")
+			{
+				api.POST("/search", handlers.SearchServersHandler)
+				api.POST("/getRoomsByIds", handlers.GetRoomsByIDsHandler)
+				api.POST("/join", handlers.JoinRoomHandler)
+				api.POST("/verifyPassword", handlers.VerifyPasswordHandler)
+				api.POST("/register", handlers.RegisterRoomHandler)
+				api.POST("/heartBeat", handlers.RoomHeartBeatHandler)
+				api.POST("/remove", handlers.RemoveRoomHandler)
+				api.POST("/acceptPlayer", handlers.AcceptPlayerHandler)
+				api.POST("/listPlayers", handlers.ListPlayersHandler)
+			}
+			api.POST("/lobby/dedicatedServers/createOwnerToken", handlers.CreateOwnerTokenHandler)
 			api.POST("/lobby/getPingSites", handlers.GetPingSitesHandler)
 			api.POST("/session/login", handlers.SessionLoginHandler)
 			api.POST("/blockList/listBlocked", handlers.BlockListHandler)
@@ -127,7 +135,7 @@ func main() {
 
 	// Start cleanup goroutine for old servers
 	go func() {
-		ticker := time.NewTicker(5 * time.Minute)
+		ticker := time.NewTicker(2 * time.Minute)
 		defer ticker.Stop()
 
 		for range ticker.C {

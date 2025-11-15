@@ -190,7 +190,7 @@ func JoinRoomHandler(c *gin.Context) {
 		return
 	}
 
-	server, err := models.GetServerByRoomID(joinData.RoomID)
+	server, err := models.GetServerByID(joinData.RoomID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
 		return
