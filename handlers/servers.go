@@ -328,6 +328,9 @@ func ListActiveBansHandler(c *gin.Context) {
 		},
 	})
 }
+func APIStatusOk(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{"status": "ok"})
+}
 
 func RemovePlayerHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "OK"})

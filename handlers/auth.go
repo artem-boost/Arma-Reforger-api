@@ -27,8 +27,6 @@ func AuthHandler(c *gin.Context) {
 		return
 	}
 	hexString := hex.EncodeToString(bufferFromBase64)
-	log.Printf("hexString is : %v", hexString)
-
 	// Get Steam ticket data
 	steamAuthURL := "https://api.steampowered.com/ISteamUserAuth/AuthenticateUserTicket/v1/"
 	params := map[string]string{

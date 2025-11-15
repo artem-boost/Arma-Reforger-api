@@ -52,7 +52,7 @@ func setupRouter() *gin.Engine {
 
 		c.Next()
 	})
-
+	router.GET("/game-identity/api/v1.0/health", handlers.APIStatusOk)
 	// Auth routes
 	auth := router.Group("/game-identity/api/v1.1/identities/reforger")
 	{
@@ -62,6 +62,7 @@ func setupRouter() *gin.Engine {
 	// Game API routes
 	gameAPI := router.Group("/game-api")
 	{
+		gameAPI.GET("/health", handlers.APIStatusOk)
 		// S2S API
 		s2s := gameAPI.Group("/s2s-api/v1.0/lobby")
 		{
