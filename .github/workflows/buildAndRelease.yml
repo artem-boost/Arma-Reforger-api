@@ -3,10 +3,7 @@ name: Go Build and Release (Cross-platform)
 on:
   push:
     tags:
-      - 'v*'  # Каждый push с тегом, начинающимся с "v", например v1.0.0, создаст релиз
-  pull_request:
-    branches:
-      - main
+      - v*  
 
 jobs:
   build:
