@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"bytes"
 	"crypto/rand"
 	"encoding/json"
 	"fmt"
@@ -83,6 +84,26 @@ func MakeGetRequest(url string, params map[string]string) ([]byte, error) {
 	}
 
 	return body, nil
+}
+func MakerPOSTRequest(url string, body interface{}) ([]byte, error) {
+	JsonData, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	client := &http.Client{Timeout: 30 * time.Second}
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(JsonData))
+	if err != nil {
+		return nil, err
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	response, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	return response, nil
 }
 
 func GetCurrentTimeISO() string {

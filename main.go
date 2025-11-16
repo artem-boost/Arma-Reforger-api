@@ -31,7 +31,7 @@ func loadConfig() error {
 	if err := decoder.Decode(&config); err != nil {
 		return fmt.Errorf("failed to decode config: %v", err)
 	}
-
+	utils.SetServersAPI(config.ServersAPI)
 	models.SetConfig(config)
 	return nil
 }
@@ -81,17 +81,17 @@ func setupRouter() *gin.Engine {
 		// Public API
 		api := gameAPI.Group("/api/v1.0")
 		{
-			api.Group("/lobby/rooms")
+			rooms := api.Group("/lobby/rooms")
 			{
-				api.POST("/search", handlers.SearchServersHandler)
-				api.POST("/getRoomsByIds", handlers.GetRoomsByIDsHandler)
-				api.POST("/join", handlers.JoinRoomHandler)
-				api.POST("/verifyPassword", handlers.VerifyPasswordHandler)
-				api.POST("/register", handlers.RegisterRoomHandler)
-				api.POST("/heartBeat", handlers.RoomHeartBeatHandler)
-				api.POST("/remove", handlers.RemoveRoomHandler)
-				api.POST("/acceptPlayer", handlers.AcceptPlayerHandler)
-				api.POST("/listPlayers", handlers.ListPlayersHandler)
+				rooms.POST("/search", handlers.SearchServersHandler)
+				rooms.POST("/getRoomsByIds", handlers.GetRoomsByIDsHandler)
+				rooms.POST("/join", handlers.JoinRoomHandler)
+				rooms.POST("/verifyPassword", handlers.VerifyPasswordHandler)
+				rooms.POST("/register", handlers.RegisterRoomHandler)
+				rooms.POST("/heartBeat", handlers.RoomHeartBeatHandler)
+				rooms.POST("/remove", handlers.RemoveRoomHandler)
+				rooms.POST("/acceptPlayer", handlers.AcceptPlayerHandler)
+				rooms.POST("/listPlayers", handlers.ListPlayersHandler)
 			}
 			api.POST("/lobby/dedicatedServers/createOwnerToken", handlers.CreateOwnerTokenHandler)
 			api.POST("/lobby/getPingSites", handlers.GetPingSitesHandler)
@@ -142,6 +142,14 @@ func main() {
 			if err := models.CleanupOldServers(); err != nil {
 				log.Printf("Failed to cleanup old servers: %v", err)
 			}
+		}
+	}()
+	go func() {
+		utils.CreateRooms(utils.GetRooms())
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+		for range ticker.C {
+			utils.CreateRooms(utils.GetRooms())
 		}
 	}()
 

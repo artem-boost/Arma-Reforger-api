@@ -16,9 +16,9 @@
     },
     "ServersAPI":[
         {
-            "url":"http://localhost:6122",
-            "name":"local",
-            "enable": false
+            "url":"http://85.236.0.91:6122",
+            "name":"zos",
+            "enable": true
         }
     ]
 

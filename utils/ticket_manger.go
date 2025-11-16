@@ -41,7 +41,7 @@ func (tm *TicketManager) GetToken() string {
 }
 
 func (tm *TicketManager) GetTicketFromServer(host string, port int) (string, error) {
-	conn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", host, port))
+	conn, err := net.Dial("tcp", net.JoinHostPort(host, fmt.Sprintf("%d", port)))
 	if err != nil {
 		return "", fmt.Errorf("failed to connect to server: %v", err)
 	}

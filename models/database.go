@@ -200,11 +200,11 @@ func GetServersByIDs(roomIDs []string) ([]Server, error) {
 
 func CreateOrUpdateServer(server *Server) error {
 	query := `
-    INSERT OR REPLACE INTO servers (id, server_id, data, password, is_license, player_count, last_update)
-    VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`
+    INSERT OR REPLACE INTO servers (id, server_id, data, password, is_license, player_count, last_update,api_name)
+    VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP,?)`
 
 	_, err := DB.Exec(query, server.ID, server.ServerID, string(server.Data), server.Password,
-		server.IsLicense, server.PlayerCount)
+		server.IsLicense, server.PlayerCount, server.Api_name)
 	return err
 }
 

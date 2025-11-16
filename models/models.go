@@ -46,7 +46,7 @@ type Server struct {
 	IsLicense   bool            `json:"isLicense"`
 	LastUpdate  time.Time       `json:"lastUpdate"`
 	PlayerCount int             `json:"playerCount"`
-	api_name    string          `json:"api_name"`
+	Api_name    string          `json:"api_name"`
 }
 
 type AuthRequest struct {
