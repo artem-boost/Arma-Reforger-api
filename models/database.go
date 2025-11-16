@@ -57,7 +57,8 @@ func createTables() error {
         password TEXT,
         is_license BOOLEAN DEFAULT FALSE,
         player_count INTEGER DEFAULT 0,
-        last_update DATETIME DEFAULT CURRENT_TIMESTAMP
+        last_update DATETIME DEFAULT CURRENT_TIMESTAMP,
+		api_name TEXT NOT NULL DEFAULT 'local'
     )`
 
 	if _, err := DB.Exec(usersTable); err != nil {

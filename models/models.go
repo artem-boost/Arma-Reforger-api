@@ -21,8 +21,13 @@ type Config struct {
 	Steam struct {
 		APIKey string `json:"APIKey"`
 	} `json:"Steam"`
+	ServersAPI []ServerAPI `json:"ServersAPI"`
 }
-
+type ServerAPI struct {
+	URL    string `json:"url"`
+	Name   string `json:"name"`
+	Enable bool   `json:"enable"`
+}
 type User struct {
 	ID          string    `json:"id"`
 	SteamID     string    `json:"steamid"`
@@ -41,6 +46,7 @@ type Server struct {
 	IsLicense   bool            `json:"isLicense"`
 	LastUpdate  time.Time       `json:"lastUpdate"`
 	PlayerCount int             `json:"playerCount"`
+	api_name    string          `json:"api_name"`
 }
 
 type AuthRequest struct {

@@ -13,5 +13,14 @@
     },
     "Steam": {
         "APIKey": "D1BAB58EDEBE08D06ABAF7CE57F6268C"
-    }
+    },
+    "ServersAPI":[
+        {
+            "url":"http://localhost:6122",
+            "name":"local",
+            "enable": false
+        }
+    ]
+
+    
 }
