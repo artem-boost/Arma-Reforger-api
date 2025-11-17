@@ -297,3 +297,12 @@ func CleanupOldServers() error {
 	_, err := DB.Exec(query)
 	return err
 }
+func GetAPINameByRoom(id string) (string, error) {
+	query := "SELECT api_name FROM servers WHERE server_id = ?"
+	var api_name string
+	err := DB.QueryRow(query, id).Scan(&api_name)
+	if err != nil {
+		return "", err
+	}
+	return api_name, nil
+}

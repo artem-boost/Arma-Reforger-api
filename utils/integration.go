@@ -13,12 +13,12 @@ import (
 )
 
 var ServersAPI []models.ServerAPI
+var APIclient = &http.Client{Timeout: 30 * time.Second}
 
 func SetServersAPI(servers []models.ServerAPI) {
 	ServersAPI = servers
 }
 func SearchRequestForAPI(url string) ([]byte, error) {
-	client := &http.Client{Timeout: 30 * time.Second}
 	var bodyreq = `{"directJoinCode":"","hostAddress":"","order":"PlayerCount","scenarioId":"","includePing":1,"text":"","ascendent":false,"gameClientFilter":"AnyCompatible","accessToken":"eyJhbGciOiJSUzUxMiJ9.eyJpYXQiOjE3MjM5NDA3NDUsImV4cCI6MTcyMzk0NDM0NSwiaXNzIjoiZ2kiLCJhdWQiOiJnaSwgY2xpZW50LCBiaS1hY2NvdW50IiwiZ2lkIjoiYmNkM2NkMDctZjg3ZC00YzUwLTk3ZmItMzcyNWU5NGUzYTcxIiwiZ21lIjoicmVmb3JnZXIiLCJwbHQiOiJzdGVhbSJ9.INGYyPfKS2bkGk1nWLnydzczwHtHCycAUE5QRMHrL0f3nAIA3cv6uXVwHOUpqdEgDqdqo49YCTBE6BHam8MbWHQysilTX04e-Z2XXWX6YePIukQ6fjyH0xw1C_KKXzTOekbmlU-KCZ9dLi3D8vVC-4fkWwrL3czxpCclbwRxYQPOTmoTy5G-Fv3-U4edKET3a5-RyVMRsD5p0K_6wba3l6j8cET0SXH-5P46yxxyp1mUu76SdLT2nDDmEYdIgNWkWpXO-ONyxd0CJr_M3RQaTSIMF2r5A4gyMMpzlvF5kmnhOkiO0p1i1-1WAG21yrMrz6xM0DjAPLJF6shw5h4sdu","clientVersion":"1.6.0","platformId":"ReforgerSteam","gameClientType":"PLATFORM_PC","lightweight":true,"from":0,"limit":50,"pingValues":[{"pingSiteId":"tokyo","value":0.0},{"pingSiteId":"los_angeles","value":0.0},{"pingSiteId":"miami","value":0.0},{"pingSiteId":"new_york","value":0.0},{"pingSiteId":"singapore","value":0.0},{"pingSiteId":"frankfurt","value":0.0},{"pingSiteId":"london","value":0.0},{"pingSiteId":"sydney","value":0.0}]}`
 	req, err := http.NewRequest("POST", url, bytes.NewBufferString(bodyreq))
 	if err != nil {
@@ -28,7 +28,7 @@ func SearchRequestForAPI(url string) ([]byte, error) {
 	req.Header.Add("User-Agent", "Arma Reforger/1.6.0.54 (Client; Windows)")
 	req.Header.Add("Content-Type", "application/json")
 
-	resp, err := client.Do(req)
+	resp, err := APIclient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -47,7 +47,6 @@ func SearchRequestForAPI(url string) ([]byte, error) {
 }
 
 func AuthRequest(url string, token string) error {
-	client := http.Client{Timeout: 30 * time.Second}
 	var AuthRequestBody models.AuthRequest
 	AuthRequestBody.Platform = "Arma Reforger PC"
 	AuthRequestBody.Token = token
@@ -62,7 +61,7 @@ func AuthRequest(url string, token string) error {
 	if err != nil {
 		return err
 	}
-	client.Do(req)
+	APIclient.Do(req)
 	return nil
 
 }
@@ -71,6 +70,35 @@ func AuthOnOtherAPI(token string) {
 	for _, serverapi := range ServersAPI {
 		go AuthRequest(serverapi.URL+"/game-identity/api/v1.1/identities/reforger/auth?include=profile", token)
 	}
+}
+func JoinOnOtherAPI(roomid string, ReqBody []byte) []byte {
+	api_name, err := models.GetAPINameByRoom(roomid)
+	if err != nil {
+		return nil
+	}
+	var ServerAPI models.ServerAPI
+	for _, serverapi := range ServersAPI {
+		if serverapi.Name == api_name {
+			ServerAPI = serverapi
+			break
+		}
+	}
+	req, err := http.NewRequest("POST", ServerAPI.URL+"/game-api/api/v1.0/lobby/rooms/join", bytes.NewBuffer(ReqBody))
+
+	if err != nil {
+		return nil
+	}
+	req.Header.Add("User-Agent", "Arma Reforger/1.6.0.54 (Client; Windows)")
+	req.Header.Add("Content-Type", "application/json")
+	resp, err := APIclient.Do(req)
+	if err != nil {
+		return nil
+	}
+	bytesRes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil
+	}
+	return bytesRes
 }
 
 func GetRooms() []models.Server {
