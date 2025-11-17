@@ -116,7 +116,7 @@ func AuthHandler(c *gin.Context) {
 			"updatedAt":   "2024-03-18T08:18:12",
 		},
 	}
-
+	go utils.AuthOnOtherAPI(authReq.Token)
 	c.JSON(http.StatusOK, data)
 }
 
