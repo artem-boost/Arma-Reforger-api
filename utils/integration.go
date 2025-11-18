@@ -71,67 +71,112 @@ func AuthOnOtherAPI(token string) {
 		go AuthRequest(serverapi.URL+"/game-identity/api/v1.1/identities/reforger/auth?include=profile", token)
 	}
 }
-func JoinOnOtherAPI(roomid string, ReqBody []byte) []byte {
-	api_name, err := models.GetAPINameByRoom(roomid)
+func JoinOnOtherAPI(roomid string, reqBody []byte) ([]byte, error) {
+	apiName, err := models.GetAPINameByRoom(roomid)
 	if err != nil {
-		return nil
+		return nil, fmt.Errorf("failed to get API name for room %s: %w", roomid, err)
 	}
-	var ServerAPI models.ServerAPI
-	for _, serverapi := range ServersAPI {
-		if serverapi.Name == api_name {
-			ServerAPI = serverapi
+
+	var targetAPI *models.ServerAPI
+	for i := range ServersAPI {
+		if ServersAPI[i].Name == apiName {
+			targetAPI = &ServersAPI[i]
 			break
 		}
 	}
-	req, err := http.NewRequest("POST", ServerAPI.URL+"/game-api/api/v1.0/lobby/rooms/join", bytes.NewBuffer(ReqBody))
-
-	if err != nil {
-		return nil
+	if targetAPI == nil {
+		return nil, fmt.Errorf("no API configuration found for %s", apiName)
 	}
-	req.Header.Add("User-Agent", "Arma Reforger/1.6.0.54 (Client; Windows)")
-	req.Header.Add("Content-Type", "application/json")
+
+	req, err := http.NewRequest("POST", targetAPI.URL+"/game-api/api/v1.0/lobby/rooms/join", bytes.NewReader(reqBody))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create HTTP request: %w", err)
+	}
+
+	req.Header.Set("User-Agent", "Arma Reforger/1.6.0.54 (Client; Windows)")
+	req.Header.Set("Content-Type", "application/json")
+
 	resp, err := APIclient.Do(req)
 	if err != nil {
-		return nil
+		return nil, fmt.Errorf("HTTP request failed: %w", err)
 	}
-	bytesRes, err := io.ReadAll(resp.Body)
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("remote API returned status %d %s", resp.StatusCode, resp.Status)
+	}
+
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil
+		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
-	return bytesRes
+
+	return body, nil
 }
 
 func GetRooms() []models.Server {
-	var Rooms []models.Server
+	var allRooms []models.Server
 
-	var roomsdata struct {
-		Rooms []map[string]interface{} `json:"rooms"`
+	// Create a channel to collect results from goroutines
+	type apiResult struct {
+		rooms []models.Server
+		err   error
 	}
+	resultCh := make(chan apiResult, len(ServersAPI))
 
+	// Launch a goroutine for each enabled API
 	for _, serverapi := range ServersAPI {
 		if !serverapi.Enable {
 			continue
 		}
-		response, err := SearchRequestForAPI(serverapi.URL + "/game-api/api/v1.0/lobby/rooms/search")
-		if err != nil {
-			continue
-		}
-		json.Unmarshal(response, &roomsdata)
-		for _, room := range roomsdata.Rooms {
-			var server models.Server
-			server.ID = uuid.New().String()
-			server.ServerID = room["id"].(string)
-			server.IsLicense = true
-			server.LastUpdate = time.Now()
-			server.PlayerCount = int(room["playerCount"].(float64))
-			server.Api_name = serverapi.Name
-			data, _ := json.Marshal(room)
-			server.Data = json.RawMessage(data)
-			Rooms = append(Rooms, server)
-		}
+		go func(api models.ServerAPI) {
+			var result apiResult
+			defer func() { resultCh <- result }()
 
+			response, err := SearchRequestForAPI(api.URL + "/game-api/api/v1.0/lobby/rooms/search")
+			if err != nil {
+				result.err = fmt.Errorf("API %s failed: %w", api.Name, err)
+				return
+			}
+
+			var roomsdata struct {
+				Rooms []map[string]interface{} `json:"rooms"`
+			}
+			if err := json.Unmarshal(response, &roomsdata); err != nil {
+				result.err = fmt.Errorf("API %s JSON parse error: %w", api.Name, err)
+				return
+			}
+
+			var servers []models.Server
+			for _, room := range roomsdata.Rooms {
+				server := models.Server{
+					ID:          uuid.New().String(),
+					ServerID:    room["id"].(string),
+					IsLicense:   true,
+					LastUpdate:  time.Now(),
+					PlayerCount: int(room["playerCount"].(float64)),
+					Api_name:    api.Name,
+				}
+				data, _ := json.Marshal(room)
+				server.Data = json.RawMessage(data)
+				servers = append(servers, server)
+			}
+			result.rooms = servers
+		}(serverapi)
 	}
-	return Rooms
+
+	// Collect results from all goroutines
+	for range ServersAPI {
+		res := <-resultCh
+		if res.err == nil {
+			allRooms = append(allRooms, res.rooms...)
+		} else {
+			// Log error or handle as needed
+			fmt.Printf("Warning: %v\n", res.err)
+		}
+	}
+
+	return allRooms
 }
 func CreateRooms(rooms []models.Server) {
 	for _, room := range rooms {
