@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 
@@ -201,23 +202,34 @@ func JoinRoomHandler(c *gin.Context) {
 		return
 	}
 
+	if server.Api_name == "local" {
+		// Handle local server join
+		if err := handleLocalJoin(c, server, &joinData); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		}
+	} else {
+		// Forward to remote API and return raw response
+		if err := handleRemoteJoin(c, &joinData); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to forward join request", "details": err.Error()})
+		}
+	}
+}
+
+// handleLocalJoin processes join requests for servers hosted on this API
+func handleLocalJoin(c *gin.Context, server *models.Server, joinData *models.RoomJoinRequest) error {
 	var serverData map[string]interface{}
 	if err := json.Unmarshal(server.Data, &serverData); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid server data"})
-		return
+		return fmt.Errorf("invalid server data: %w", err)
 	}
 
 	serverAddress, ok := serverData["hostAddress"].(string)
 	if !ok {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid server address"})
-		return
+		return fmt.Errorf("invalid server address")
 	}
 
 	sessionTicket := utils.GenerateRandomString(64, true)
-
 	if err := models.UpdateUserTicket(joinData.AccessToken, sessionTicket); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update user ticket"})
-		return
+		return fmt.Errorf("failed to update user ticket: %w", err)
 	}
 
 	data := gin.H{
@@ -229,4 +241,23 @@ func JoinRoomHandler(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, data)
+	return nil
+}
+
+// handleRemoteJoin forwards join requests to external APIs
+func handleRemoteJoin(c *gin.Context, joinData *models.RoomJoinRequest) error {
+	// Re-encode the original request body
+	reqBody, err := json.Marshal(joinData)
+	if err != nil {
+		return fmt.Errorf("failed to encode request: %w", err)
+	}
+
+	resp, err := utils.JoinOnOtherAPI(joinData.RoomID, reqBody)
+	if err != nil {
+		return err
+	}
+
+	// Return raw bytes from remote API
+	c.Data(http.StatusOK, "application/json", resp)
+	return nil
 }
