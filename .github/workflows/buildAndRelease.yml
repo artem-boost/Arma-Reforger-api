@@ -36,22 +36,38 @@ jobs:
 
     - name: Build Go Application (Cross-Platform)
       run: |
-        if [ "${{ matrix.os }}" == "ubuntu-latest" ]; then
-          GOOS=linux GOARCH=${{ matrix.arch }} go build -o Arma-Reforger-api-linux-${{ matrix.arch }}
-        elif [ "${{ matrix.os }}" == "windows-latest" ]; then
-          GOOS=windows GOARCH=${{ matrix.arch }} go build -o Arma-Reforger-api-windows-${{ matrix.arch }}.exe
-        elif [ "${{ matrix.os }}" == "macos-latest" ]; then
-          GOOS=darwin GOARCH=${{ matrix.arch }} go build -o Arma-Reforger-api-darwin-${{ matrix.arch }}
-        fi
+        case "${{ matrix.os }}" in
+          "ubuntu-latest")
+            GOOS=linux
+            ext=""
+            ;;
+          "windows-latest")
+            GOOS=windows
+            ext=".exe"
+            ;;
+          "macos-latest")
+            GOOS=darwin
+            ext=""
+            ;;
+          *)
+            echo "Unknown OS: ${{ matrix.os }}" >&2
+            exit 1
+            ;;
+        esac
+        GOARCH=${{ matrix.arch }}
+        output="Arma-Reforger-api-${{ matrix.os }}-${GOARCH}${ext}"
+        GOOS=$GOOS GOARCH=$GOARCH go build -o "$output"
     - name: Package the build into a ZIP archive
       run: |
-        mkdir -p package
-        cp Arma-Reforger-api-${{ matrix.os }}-${{ matrix.arch }}* package/
-        cp -r config.json package/
-        zip -r Arma-Reforger-api-${{ matrix.os }}-${{ matrix.arch }}.zip package/
+        mkdir -p arma-reforger-api
+        cp Arma-Reforger-api-${{ matrix.os }}-${{ matrix.arch }}* arma-reforger-api/
+        cp config.json arma-reforger-api/
+        zip -r Arma-Reforger-api-${{ matrix.os }}-${{ matrix.arch }}.zip arma-reforger-api/
     # Upload build artifacts
     - name: Upload build artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: Arma-Reforger-api-${{ matrix.os }}-${{ matrix.arch }}
         path: Arma-Reforger-api-${{ matrix.os }}-${{ matrix.arch }}.zip
+      
+
