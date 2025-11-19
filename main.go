@@ -81,17 +81,17 @@ func setupRouter() *gin.Engine {
 		// Public API
 		api := gameAPI.Group("/api/v1.0")
 		{
-			api.Group("/lobby/rooms")
+			room := api.Group("/lobby/rooms")
 			{
-				api.POST("/search", handlers.SearchServersHandler)
-				api.POST("/getRoomsByIds", handlers.GetRoomsByIDsHandler)
-				api.POST("/join", handlers.JoinRoomHandler)
-				api.POST("/verifyPassword", handlers.VerifyPasswordHandler)
-				api.POST("/register", handlers.RegisterRoomHandler)
-				api.POST("/heartBeat", handlers.RoomHeartBeatHandler)
-				api.POST("/remove", handlers.RemoveRoomHandler)
-				api.POST("/acceptPlayer", handlers.AcceptPlayerHandler)
-				api.POST("/listPlayers", handlers.ListPlayersHandler)
+				room.POST("/search", handlers.SearchServersHandler)
+				room.POST("/getRoomsByIds", handlers.GetRoomsByIDsHandler)
+				room.POST("/join", handlers.JoinRoomHandler)
+				room.POST("/verifyPassword", handlers.VerifyPasswordHandler)
+				room.POST("/register", handlers.RegisterRoomHandler)
+				room.POST("/heartBeat", handlers.RoomHeartBeatHandler)
+				room.POST("/remove", handlers.RemoveRoomHandler)
+				room.POST("/acceptPlayer", handlers.AcceptPlayerHandler)
+				room.POST("/listPlayers", handlers.ListPlayersHandler)
 			}
 			api.POST("/lobby/dedicatedServers/createOwnerToken", handlers.CreateOwnerTokenHandler)
 			api.POST("/lobby/getPingSites", handlers.GetPingSitesHandler)
