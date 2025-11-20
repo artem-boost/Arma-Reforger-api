@@ -28,14 +28,21 @@ type ServerAPI struct {
 	Name   string `json:"name"`
 	Enable bool   `json:"enable"`
 }
-type User struct {
-	ID          string    `json:"id"`
-	SteamID     string    `json:"steamid"`
-	Username    string    `json:"username"`
+type UserToken struct {
 	AccessToken string    `json:"accessToken"`
-	Ticket      string    `json:"ticket"`
+	ApiName     string    `json:"apiName"`
 	CreatedAt   time.Time `json:"createdAt"`
-	UpdatedAt   time.Time `json:"updatedAt"`
+}
+
+type User struct {
+	ID          string      `json:"id"`
+	SteamID     string      `json:"steamid"`
+	Username    string      `json:"username"`
+	AccessToken string      `json:"accessToken"`
+	Ticket      string      `json:"ticket"`
+	Tokens      []UserToken `json:"tokens,omitempty"`
+	CreatedAt   time.Time   `json:"createdAt"`
+	UpdatedAt   time.Time   `json:"updatedAt"`
 }
 
 type Server struct {
