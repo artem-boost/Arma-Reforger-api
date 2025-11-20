@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"time"
 
@@ -46,32 +47,90 @@ func SearchRequestForAPI(url string) ([]byte, error) {
 	return body, nil
 }
 
-func AuthRequest(url string, token string) error {
+func AuthRequest(url string, Steamtoken string) (string, error) {
 	var AuthRequestBody models.AuthRequest
 	AuthRequestBody.Platform = "Arma Reforger PC"
-	AuthRequestBody.Token = token
+	AuthRequestBody.Token = Steamtoken
 	AuthRequestBody.PlatformOpts.AppID = "480"
 	body, err := json.Marshal(&AuthRequestBody)
 	if err != nil {
-		return err
+		return "", err
 	}
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(body))
+	if err != nil {
+		return "", err
+	}
 	req.Header.Add("User-Agent", "Arma Reforger/1.6.0.54 (Client; Windows)")
 	req.Header.Add("Content-Type", "application/json")
+
+	resp, err := APIclient.Do(req)
 	if err != nil {
-		return err
+		return "", err
 	}
-	APIclient.Do(req)
-	return nil
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("HTTP request failed with status: %s", resp.Status)
+	}
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	// Try to extract access token from various possible response shapes
+	var parsed map[string]interface{}
+	if err := json.Unmarshal(respBody, &parsed); err != nil {
+		return "", fmt.Errorf("failed to parse auth response: %w", err)
+	}
+
+	// common location for access token
+	if at, ok := parsed["accessToken"].(string); ok && at != "" {
+		return at, nil
+	}
+	// If token not found, return whole response as error for debugging
+	return "", fmt.Errorf("access token not found in response: %s", string(respBody))
 
 }
 
-func AuthOnOtherAPI(token string) {
+func AuthOnOtherAPI(userID, Steamtoken string) {
 	for _, serverapi := range ServersAPI {
-		go AuthRequest(serverapi.URL+"/game-identity/api/v1.1/identities/reforger/auth?include=profile", token)
+		go func(apiURL, apiName string) {
+			token, err := AuthRequest(apiURL+"/game-identity/api/v1.1/identities/reforger/auth?include=profile", Steamtoken)
+			if err != nil {
+				log.Printf("Auth on %s failed: %v\n", apiURL, err)
+				return
+			}
+
+			// Save received token to DB associated with userID and API name
+			if err := models.CreateOrUpdateAccessToken(userID, token, apiName); err != nil {
+				log.Printf("Failed to save access token for user %s on %s: %v\n", userID, apiName, err)
+				return
+			}
+		}(serverapi.URL, serverapi.Name)
 	}
 }
 func JoinOnOtherAPI(roomid string, reqBody []byte) ([]byte, error) {
+	// Parse incoming request to extract accessToken
+	var joinReq models.RoomJoinRequest
+	if err := json.Unmarshal(reqBody, &joinReq); err != nil {
+		return nil, fmt.Errorf("failed to parse join request: %w", err)
+	}
+
+	if joinReq.AccessToken == "" {
+		return nil, fmt.Errorf("missing accessToken in join request")
+	}
+
+	// Get userID from local user by accessToken
+	user, err := models.GetUserByAccessToken(joinReq.AccessToken)
+	if err != nil {
+		return nil, fmt.Errorf("failed to lookup user by accessToken: %w", err)
+	}
+	if user == nil {
+		return nil, fmt.Errorf("user not found for accessToken")
+	}
+
+	// Resolve target API
 	apiName, err := models.GetAPINameByRoom(roomid)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get API name for room %s: %w", roomid, err)
@@ -88,13 +147,30 @@ func JoinOnOtherAPI(roomid string, reqBody []byte) ([]byte, error) {
 		return nil, fmt.Errorf("no API configuration found for %s", apiName)
 	}
 
-	req, err := http.NewRequest("POST", targetAPI.URL+"/game-api/api/v1.0/lobby/rooms/join", bytes.NewReader(reqBody))
+	// Get remote accessToken for this user on the target API
+	remoteToken, err := models.GetAccessTokenByUserAndAPI(user.ID, apiName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get remote access token: %w", err)
+	}
+	if remoteToken == "" {
+		return nil, fmt.Errorf("no remote access token found for user %s on API %s", user.ID, apiName)
+	}
+
+	// Replace accessToken in the request
+	joinReq.AccessToken = remoteToken
+	newBody, err := json.Marshal(joinReq)
+	if err != nil {
+		return nil, fmt.Errorf("failed to rebuild request with remote token: %w", err)
+	}
+
+	// Forward to remote API
+	req, err := http.NewRequest("POST", targetAPI.URL+"/game-api/api/v1.0/lobby/rooms/join", bytes.NewReader(newBody))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create HTTP request: %w", err)
 	}
 
-	req.Header.Set("User-Agent", "Arma Reforger/1.6.0.54 (Client; Windows)")
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("User-Agent", "Arma Reforger/1.6.0.68 (Client; Windows)")
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 	resp, err := APIclient.Do(req)
 	if err != nil {

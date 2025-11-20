@@ -405,3 +405,14 @@ func GetAPINameByRoom(id string) (string, error) {
 	}
 	return api_name, nil
 }
+
+// GetAccessTokenByUserAndAPI возвращает access token из таблицы user_tokens по userID и apiName
+func GetAccessTokenByUserAndAPI(userID, apiName string) (string, error) {
+	query := "SELECT access_token FROM user_tokens WHERE user_id = ? AND api_name = ?"
+	var accessToken string
+	err := DB.QueryRow(query, userID, apiName).Scan(&accessToken)
+	if err == sql.ErrNoRows {
+		return "", nil
+	}
+	return accessToken, err
+}
