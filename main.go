@@ -3,7 +3,6 @@ package main
 import (
 	"arma-reforger-api/handlers"
 	"arma-reforger-api/models"
-	"arma-reforger-api/utils"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -16,8 +15,7 @@ import (
 )
 
 var (
-	config        *models.Config
-	ticketManager *utils.TicketManager
+	config *models.Config
 )
 
 func loadConfig() error {
@@ -103,12 +101,6 @@ func setupRouter() *gin.Engine {
 		}
 	}
 
-	// Workshop API
-	workshop := router.Group("/workshop-api/api/v3.0")
-	{
-		workshop.POST("/assets/list", handlers.WorkshopListHandler)
-	}
-
 	// Utility routes
 	router.POST("/ping", handlers.PingHandler)
 	router.GET("/api/news", handlers.NewsHandler)
@@ -130,8 +122,6 @@ func main() {
 	}
 
 	// Initialize ticket manager
-	ticketManager = utils.NewTicketManager(config)
-	go ticketManager.FetchTicketPeriodically()
 
 	// Start cleanup goroutine for old servers
 	go func() {
