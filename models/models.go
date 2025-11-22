@@ -11,9 +11,7 @@ type Config struct {
 		ActivateWorkshop bool `json:"ActivateWorkshop"`
 	} `json:"API"`
 	Workshop struct {
-		IP   string `json:"IP"`
-		PORT int    `json:"PORT"`
-		KEY  string `json:"KEY"`
+		URL string `json:"URL"`
 	} `json:"Workshop"`
 	DB struct {
 		Path string `json:"Path"`

@@ -4,9 +4,7 @@
         "ActivateWorkshop": false
     },
     "Workshop": {
-        "IP": "127.0.0.1",
-        "PORT": 2305,
-        "KEY": "your_workshop_key"
+        "URL": "http://localhost:6122"
     },
     "DB": {
         "Path": "./arma_reforger.db"

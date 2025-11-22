@@ -107,6 +107,12 @@ func setupRouter() *gin.Engine {
 	router.POST("/GetWorkshopToken", handlers.GetWorkshopTokenHandler)
 	router.POST("/getLobby", handlers.GetLobbyHandler)
 
+	// User API routes
+	userAPI := router.Group("/user/api/v2.0")
+	{
+		userAPI.POST("/game-identity/token", handlers.GetUserTokenProxyHandler)
+	}
+
 	return router
 }
 

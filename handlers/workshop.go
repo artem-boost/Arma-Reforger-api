@@ -1,16 +1,122 @@
 package handlers
 
 import (
+	"bytes"
+	"io"
 	"net/http"
+	"time"
+
+	"arma-reforger-api/models"
 
 	"github.com/gin-gonic/gin"
 )
 
+// GetWorkshopTokenHandler форвардит POST-запрос к серверу, указанному в конфиге.
+// Тело и заголовки запроса копируются, а ответ проксируется клиенту.
 func GetWorkshopTokenHandler(c *gin.Context) {
-	// В реальной реализации здесь должен быть ваш ticketManager
-	token := "eyJhbGciOiJSUzUxMiJ9.eyJpYXQiOjE3MjM5NDA3NDUsImV4cCI6MTcyMzk0NDM0NSwiaXNzIjoiZ2kiLCJhdWQiOiJnaSwgY2xpZW50LCBiaS1hY2NvdW50IiwiZ2lkIjoiYmNkM2NkMDctZjg3ZC00YzUwLTk3ZmItMzcyNWU5NGUzYTcxIiwiZ21lIjoicmVmb3JnZXIiLCJwbHQiOiJzdGVhbSJ9.INGYyPfKS2bkGk1nWLnydzczwHtHCycAUE5QRMHrL0f3nAIA3cv6uXVwHOUpqdEgDqdqo49YCTBE6BHam8MbWHQysilTX04e-Z2XXWX6YePIukQ6fjyH0xw1C_KKXzTOekbmlU-KCZ9dLi3D8vVC-4fkWwrL3czxpCclbwRxYQPOTmoTy5G-Fv3-U4edKET3a5-RyVMRsD5p0K_6wba3l6j8cET0SXH-5P46yxxyp1mUu76SdLT2nDDmEYdIgNWkWpXO-ONyxd0CJr_M3RQaTSIMF2r5A4gyMMpzlvF5kmnhOkiO0p1i1-1WAG21yrMrz6xM0DjAPLJFAAAAAAAAAA"
+	cfg := models.GetConfig()
+	if cfg == nil || cfg.Workshop.URL == "" {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "workshop URL not configured"})
+		return
+	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"token": token,
-	})
+	// Прочитаем тело исходного запроса
+	body, err := io.ReadAll(c.Request.Body)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "failed to read request body"})
+		return
+	}
+
+	// Создадим новый запрос к указанному в конфиге URL
+	req, err := http.NewRequest("POST", cfg.Workshop.URL+"/GetWorkshopToken", io.NopCloser(bytes.NewReader(body)))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create proxy request"})
+		return
+	}
+
+	// Скопируем заголовки из оригинального запроса
+	for k, vals := range c.Request.Header {
+		for _, v := range vals {
+			req.Header.Add(k, v)
+		}
+	}
+
+	// Клиент с таймаутом
+	client := &http.Client{Timeout: 15 * time.Second}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to forward request"})
+		return
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to read response from remote"})
+		return
+	}
+
+	// Установим content-type из ответа и вернём тело и статус
+	contentType := resp.Header.Get("Content-Type")
+	if contentType == "" {
+		contentType = "application/json"
+	}
+
+	c.Data(resp.StatusCode, contentType, respBody)
+}
+
+// GetUserTokenProxyHandler форвардит POST-запрос к серверу, указанному в конфиге.
+// Тело и заголовки запроса копируются, а ответ проксируется клиенту.
+func GetUserTokenProxyHandler(c *gin.Context) {
+	cfg := models.GetConfig()
+	if cfg == nil || cfg.Workshop.URL == "" {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "workshop URL not configured"})
+		return
+	}
+
+	// Прочитаем тело исходного запроса
+	body, err := io.ReadAll(c.Request.Body)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "failed to read request body"})
+		return
+	}
+
+	// Создадим новый запрос к указанному в конфиге URL
+	req, err := http.NewRequest("POST", cfg.Workshop.URL+"/user/api/v2.0/game-identity/token", io.NopCloser(bytes.NewReader(body)))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create proxy request"})
+		return
+	}
+
+	// Скопируем заголовки из оригинального запроса
+	for k, vals := range c.Request.Header {
+		for _, v := range vals {
+			req.Header.Add(k, v)
+		}
+	}
+
+	// Клиент с таймаутом
+	client := &http.Client{Timeout: 15 * time.Second}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to forward request"})
+		return
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to read response from remote"})
+		return
+	}
+
+	// Установим content-type из ответа и вернём тело и статус
+	contentType := resp.Header.Get("Content-Type")
+	if contentType == "" {
+		contentType = "application/json"
+	}
+
+	c.Data(resp.StatusCode, contentType, respBody)
 }
