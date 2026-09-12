@@ -7,8 +7,9 @@ import (
 
 type Config struct {
 	API struct {
-		PORT             int  `json:"PORT"`
-		ActivateWorkshop bool `json:"ActivateWorkshop"`
+		PORT             int    `json:"PORT"`
+		PublishHost      string `json:"PublishHost"`
+		ActivateWorkshop bool   `json:"ActivateWorkshop"`
 	} `json:"API"`
 	Workshop struct {
 		IP   string `json:"IP"`

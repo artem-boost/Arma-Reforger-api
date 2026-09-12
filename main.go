@@ -50,6 +50,7 @@ func setupRouter() *gin.Engine {
 
 		c.Next()
 	})
+	router.GET("/game-config/*path", handlers.GameConfigHandler)
 	router.GET("/game-identity/api/v1.0/health", handlers.APIStatusOk)
 	// Auth routes
 	auth := router.Group("/game-identity/api/v1.1/identities/reforger")

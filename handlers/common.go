@@ -1,7 +1,10 @@
 package handlers
 
 import (
+	"arma-reforger-api/models"
 	"net/http"
+	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -133,4 +136,118 @@ func SessionLoginHandler(c *gin.Context) {
 		"sessionId":                "4105b12d-6873-4f8e-9dd3-36d638fdc455",
 	}
 	c.JSON(http.StatusOK, data)
+}
+
+// ==CONFIG HANDLER==
+
+// Описание структуры JSON ответа
+type ConfigOverview struct {
+	Tag            *string `json:"tag"`
+	Status         string  `json:"status"`
+	Message        string  `json:"message"`
+	HealthCheckUrl *string `json:"healthCheckUrl"`
+}
+
+type ConfigProperty struct {
+	Name  string  `json:"name"`
+	Type  string  `json:"type"`
+	Value *string `json:"value,omitempty"` // omitempty уберет поле, если оно nil (как в URI_StarRiver)
+}
+
+type ConfigService struct {
+	Tag            string  `json:"tag"`
+	Status         string  `json:"status"`
+	Message        string  `json:"message"`
+	HealthCheckUrl *string `json:"healthCheckUrl"`
+}
+
+type GameConfigResponse struct {
+	Name       string           `json:"name"`
+	Version    string           `json:"version"`
+	Env        string           `json:"env"`
+	Overview   ConfigOverview   `json:"overview"`
+	Properties []ConfigProperty `json:"properties"`
+	Services   []ConfigService  `json:"services"`
+	CreatedAt  string           `json:"createdAt"`
+}
+
+// Вспомогательная функция для указателей на строки
+func strPtr(s string) *string {
+	return &s
+}
+
+func GameConfigHandler(c *gin.Context) {
+	baseURL := models.GetConfig().API.PublishHost
+	// 1. Получаем путь после /game-config/
+	// Например: "/api/v1/reforger/1.8.0/13/list"
+	fullPath := c.Param("path")
+
+	// 2. Извлекаем версию из пути
+	gameVersion := "1.8.0" // Устанавливаем дефолтное значение на случай непредвиденного URL
+	parts := strings.Split(fullPath, "/")
+
+	// Ищем "reforger" и берем следующий за ним сегмент
+	for i, part := range parts {
+		if part == "reforger" && i+1 < len(parts) {
+			gameVersion = parts[i+1]
+			break
+		}
+	}
+	// Формируем правильный ответ, соответствующий дампу
+	response := GameConfigResponse{
+		Name:    "Reforger",
+		Version: gameVersion,
+		Env:     "Production",
+		Overview: ConfigOverview{
+			Tag:            nil,
+			Status:         "ok",
+			Message:        "",
+			HealthCheckUrl: nil,
+		},
+		Properties: []ConfigProperty{
+			{Name: "Link_Bohemia", Type: "string", Value: strPtr("https://www.bohemia.net")},
+			// ... (здесь можно перечислить все остальные ссылки, если они нужны клиенту) ...
+
+			// Самые важные API эндпоинты
+			{Name: "URI_ClientLobbyApi", Type: "string", Value: strPtr(baseURL + "/game-api/api/v1.0/lobby/")},
+			{Name: "URI_GameApi", Type: "string", Value: strPtr(baseURL + "/game-api/api/v1.0/")},
+			{Name: "URI_GameApiS2S", Type: "string", Value: strPtr(baseURL + "/game-api/s2s-api/v1.0/")},
+			{Name: "URI_IdentityApi", Type: "string", Value: strPtr(baseURL + "/game-identity/")},
+			{Name: "URI_LobbyApi", Type: "string", Value: strPtr(baseURL + "/game-api/s2s-api/v1.0/lobby/")},
+			{Name: "URI_StorageApi", Type: "string", Value: strPtr(baseURL + "/storage/api/v4.0/")},
+			{Name: "URI_UserApi", Type: "string", Value: strPtr(baseURL + "/user/api/v2.0/")},
+			{Name: "URI_GroupApi", Type: "string", Value: strPtr(baseURL + "/group/api/v2.0/")},
+
+			// Античит и аналитика
+			{Name: "URI_STSContext", Type: "string", Value: strPtr(baseURL + "/game-identity/api/v1.1/nitrado/steel-shield/reforger/")},
+			{Name: "Opt_Analytics", Type: "string", Value: strPtr("TreasureData")},
+
+			// Пример параметра без value (останется только name и type)
+			{Name: "URI_StarRiver", Type: "string"},
+		},
+		Services: []ConfigService{
+			{
+				Tag:            "game-api",
+				Status:         "ok",
+				Message:        "",
+				HealthCheckUrl: strPtr(baseURL + "/game-api/health"),
+			},
+			{
+				Tag:            "game-identity",
+				Status:         "ok",
+				Message:        "",
+				HealthCheckUrl: strPtr(baseURL + "/game-identity/api/v1.0/health"),
+			},
+			{
+				Tag:            "storage-api-v2",
+				Status:         "ok",
+				Message:        "",
+				HealthCheckUrl: nil,
+			},
+		},
+		// Ставим текущее время в нужном формате
+		CreatedAt: time.Now().UTC().Format("2006-01-02T15:04:05.000Z"),
+	}
+
+	c.JSON(http.StatusOK, response)
 }

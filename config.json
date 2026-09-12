@@ -1,6 +1,7 @@
 {
     "API": {
         "PORT": 6122,
+        "PublishHost": "http://localhost:6122",
         "ActivateWorkshop": false
     },
     "Workshop": {
