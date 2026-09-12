@@ -3,7 +3,7 @@ name: Go Build and Release (Cross-platform)
 on:
   push:
     tags:
-      - v*  
+      - v*
 
 jobs:
   build:
@@ -57,12 +57,14 @@ jobs:
         GOARCH=${{ matrix.arch }}
         output="Arma-Reforger-api-${{ matrix.os }}-${GOARCH}${ext}"
         GOOS=$GOOS GOARCH=$GOARCH go build -o "$output"
-    - name: Package the build into a ZIP archive
+
+    - name: Package the build into a directory
       run: |
         mkdir -p arma-reforger-api
         cp Arma-Reforger-api-${{ matrix.os }}-${{ matrix.arch }}* arma-reforger-api/
         cp config.json arma-reforger-api/
-        cp -r Tools/ arma-reforger-api/
+        cp -r Tools/ arma-reforger-api/ || true # || true на случай, если папки Tools нет в корне
+
     # Upload build artifacts
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
@@ -71,3 +73,31 @@ jobs:
         path: arma-reforger-api/
       
 
+  # Новый job для релиза
+  release:
+    needs: build # Ждем успешного завершения сборки всех матриц
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Права на создание релиза в репозитории
+
+    steps:
+    - name: Download all build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts
+        merge-multiple: false # Сохраняет структуру папок для каждого артефакта
+
+    - name: Zip artifacts for release
+      run: |
+        cd artifacts
+        # Проходим по всем скачанным папкам артефактов и создаем для них zip-архивы
+        for dir in */; do
+          dirname="${dir%/}"
+          zip -r "${dirname}.zip" "$dirname"
+        done
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v2
+      with:
+        files: artifacts/*.zip
+        generate_release_notes: true # Автоматически сгенерирует changelog из коммитов
