@@ -96,5 +96,5 @@ type ServerRegisterRequest struct {
 	GameVersion              string        `json:"gameVersion"`
 	AutoJoinable             bool          `json:"autoJoinable"`
 	Password                 string        `json:"password"`
-	DedicatedServerID        string        `json:"dedicatedServerId"`
+	DedicatedServerID        string        `json:"dedicatedHostId"`
 }

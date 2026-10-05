@@ -97,14 +97,13 @@ func RegisterUnmanagedServerHandler(c *gin.Context) {
 		return
 	}
 
-	var serverID = uuid.New().String()
-
-	hostServerID := uuid.New().String()
+	providerServerID := uuid.New().String()
+	dedicatedServerID := uuid.New().String()
 
 	data := gin.H{
 		"dsConfig": gin.H{
-			"providerServerId":  serverID,
-			"dedicatedServerId": hostServerID,
+			"providerServerId":  providerServerID,
+			"dedicatedServerId": dedicatedServerID,
 			"region":            "",
 			"game": gin.H{
 				"name":                     body.Name,
@@ -129,8 +128,8 @@ func RegisterUnmanagedServerHandler(c *gin.Context) {
 	// Сохраняем сервер в базе данных с пустыми данными
 	serverData, _ := json.Marshal(gin.H{})
 	server := &models.Server{
-		ID:          uuid.New().String(),
-		ServerID:    hostServerID,
+		ID:          dedicatedServerID, // важно: id == server_id
+		ServerID:    dedicatedServerID,
 		Data:        serverData,
 		Password:    "",
 		IsLicense:   false,
@@ -152,7 +151,27 @@ func RegisterRoomHandler(c *gin.Context) {
 		return
 	}
 
-	hostServerID := uuid.New().String()
+	// 1) Идентификатор сервера — тот, что игра получила в registerUnmanaged.
+	hostServerID := body.DedicatedServerID
+	if hostServerID == "" {
+		// fallback на случай, если запрос пришёл от клиента без dedicatedHostId
+		hostServerID = uuid.New().String()
+	}
+
+	// 2) Достаём уже существующую запись, чтобы не затирать полезные поля
+	existing, err := models.GetServerByID(hostServerID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+		return
+	}
+	if existing == nil {
+		// если registerUnmanaged почему-то не отработал — создаём с нуля
+		existing = &models.Server{
+			ID:       hostServerID,
+			ServerID: hostServerID,
+			Data:     json.RawMessage("{}"),
+		}
+	}
 
 	// Create server data
 	serverData := map[string]interface{}{
@@ -169,8 +188,8 @@ func RegisterRoomHandler(c *gin.Context) {
 		"joinable":                 true,
 		"visible":                  true,
 		"passwordProtected":        body.Password != "",
-		"created":                  1712841158268,
-		"updated":                  1712841158268,
+		"created":                  time.Now().UnixMilli(),
+		"updated":                  time.Now().UnixMilli(),
 		"hostAddress":              body.HostAddress,
 		"hostUserId":               body.DedicatedServerID,
 		"playerCountLimit":         body.PlayerCountLimit,
@@ -178,7 +197,7 @@ func RegisterRoomHandler(c *gin.Context) {
 		"autoJoinable":             body.AutoJoinable,
 		"directJoinCode":           "0622875052",
 		"supportedGameClientTypes": body.SupportedGameClientTypes,
-		"dsLaunchTimestamp":        1712841157982,
+		"dsLaunchTimestamp":        time.Now().UnixMilli(),
 		"dsProviderServerId":       hostServerID,
 		"mods":                     body.Mods,
 		"battlEye":                 false,
@@ -189,7 +208,7 @@ func RegisterRoomHandler(c *gin.Context) {
 		"runtimeStats": map[string]interface{}{
 			"needRestart": false,
 		},
-		"sessionId": "20240411131235-0000207476a1",
+		"sessionId": uuid.New().String(),
 	}
 
 	dataJSON, err := json.Marshal(serverData)
@@ -198,16 +217,13 @@ func RegisterRoomHandler(c *gin.Context) {
 		return
 	}
 
-	server := &models.Server{
-		ID:          uuid.New().String(),
-		ServerID:    hostServerID,
-		Data:        dataJSON,
-		Password:    body.Password,
-		IsLicense:   false,
-		PlayerCount: 0,
-	}
+	existing.ServerID = hostServerID
+	existing.Data = dataJSON
+	existing.Password = body.Password
+	existing.PlayerCount = 0
+	// last_update обновится в CreateOrUpdateServer через CURRENT_TIMESTAMP
 
-	if err := models.CreateOrUpdateServer(server); err != nil {
+	if err := models.CreateOrUpdateServer(existing); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save server"})
 		return
 	}
@@ -284,13 +300,11 @@ func HeartBeatHandler(c *gin.Context) {
 		return
 	}
 
-	data := gin.H{
+	c.JSON(http.StatusOK, gin.H{
 		"currentWorldVersion": "BanSettings",
 		"gameEvents":          []interface{}{},
 		"status":              "OK",
-	}
-
-	c.JSON(http.StatusOK, data)
+	})
 }
 func RoomHeartBeatHandler(c *gin.Context) {
 	var body struct {

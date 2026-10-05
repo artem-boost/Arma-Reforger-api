@@ -198,12 +198,29 @@ func GetServersByIDs(roomIDs []string) ([]Server, error) {
 }
 
 func CreateOrUpdateServer(server *Server) error {
-	query := `
-    INSERT OR REPLACE INTO servers (id, server_id, data, password, is_license, player_count, last_update)
-    VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`
+	// id == server_id — детерминированный первичный ключ, чтобы апдейты не создавали дубликатов
+	if server.ID == "" {
+		server.ID = server.ServerID
+	}
 
-	_, err := DB.Exec(query, server.ID, server.ServerID, string(server.Data), server.Password,
-		server.IsLicense, server.PlayerCount)
+	query := `
+    INSERT INTO servers (id, server_id, data, password, is_license, player_count, last_update)
+    VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+    ON CONFLICT(server_id) DO UPDATE SET
+        data         = excluded.data,
+        password     = excluded.password,
+        is_license   = excluded.is_license,
+        player_count = excluded.player_count,
+        last_update  = CURRENT_TIMESTAMP`
+
+	_, err := DB.Exec(query,
+		server.ID,
+		server.ServerID,
+		string(server.Data),
+		server.Password,
+		server.IsLicense,
+		server.PlayerCount,
+	)
 	return err
 }
 
